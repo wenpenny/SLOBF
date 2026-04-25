@@ -1,0 +1,15 @@
+# Experiments configuration (RQs)
+rq1:
+  name: "Impact of Single Obfuscations"
+  operators: ["OPI", "BCF", "SUB", "FLA"]
+  opt_levels: ["O0", "O2"]
+
+rq2:
+  name: "Impact of Obfuscation Combinations"
+  max_depth: 3
+  search_strategy: "random"
+
+rq3:
+  name: "RL-based Strategy Optimization"
+  episodes: 100
+  reward_metric: "similarity_drop / code_growth"

@@ -1,0 +1,13 @@
+# Datasets configuration
+benchmarks:
+  - name: "coreutils"
+    version: "9.1"
+    url: "https://ftp.gnu.org/gnu/coreutils/coreutils-9.1.tar.xz"
+  - name: "openssl"
+    version: "3.0.7"
+    url: "https://www.openssl.org/source/openssl-3.0.7.tar.gz"
+
+filtering:
+  min_lines: 10
+  max_lines: 500
+  exclude_patterns: ["test_", "debug_"]
