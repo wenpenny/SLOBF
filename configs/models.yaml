@@ -1,0 +1,14 @@
+# Models configuration
+models:
+  jtrans:
+    path: "checkpoints/jtrans"
+    type: "transformer"
+  clap:
+    path: "checkpoints/clap"
+    type: "contrastive"
+  palmtree:
+    path: "checkpoints/palmtree"
+    type: "bert"
+  cebin:
+    path: "checkpoints/cebin"
+    type: "gnn"

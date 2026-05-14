@@ -1,0 +1,28 @@
+# Default configuration for SLOBF
+seed: 42
+threads: 4
+verbose: false
+dry_run: false
+resume: false
+force: false
+
+paths:
+  datasets_dir: "datasets"
+  workdir: "workdir"
+  results_dir: "results"
+  logs_dir: "logs"
+
+compiler:
+  cc: "gcc"
+  opt_levels: ["O0", "O1", "O2", "O3"]
+  extra_cflags: "-g"
+  timeout_seconds: 120
+
+obfuscation:
+  operators: ["OPI", "CFF", "ER", "DE", "JCI", "FS"]
+  max_combo_depth: 3
+
+metrics:
+  top_k: [1, 5, 10]
+  similarity_threshold: 0.5
+  semantic_test_cases: 50

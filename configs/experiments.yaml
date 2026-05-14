@@ -1,0 +1,16 @@
+# Experiments configuration
+rq1:
+  name: "Impact of Single Obfuscation Operators"
+  operators: ["OPI", "CFF", "ER", "DE", "JCI", "FS"]
+  opt_levels: ["O0"]
+  seeds: [0, 1, 2]
+
+rq2:
+  name: "RL-guided Cost-Aware Obfuscation Combination Search"
+  max_depth: 3
+  search_strategy: "ppo"
+
+rq3:
+  name: "Impact of Compiler Optimization Levels"
+  operators: ["OPI", "CFF", "ER", "DE", "JCI", "FS"]
+  opt_levels: ["O0", "O1", "O2", "O3"]
