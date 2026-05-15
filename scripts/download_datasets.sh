@@ -1,46 +1,76 @@
 #!/bin/bash
 # Download benchmark datasets for SLOBF
+# Target: coreutils + binutils + diffutils + findutils
 
 set -e
 
-# Base directory for datasets
 DATASETS_DIR="datasets/raw"
 mkdir -p "$DATASETS_DIR"
 
-# Coreutils
+# ------------------------------------------------------------------
+# Coreutils 9.1
+# ------------------------------------------------------------------
 COREUTILS_VER="9.1"
-COREUTILS_URL="https://ftp.gnu.org/gnu/coreutils/coreutils-$COREUTILS_VER.tar.xz"
-if [ ! -d "$DATASETS_DIR/coreutils-$COREUTILS_VER" ]; then
-    echo "Downloading Coreutils $COREUTILS_VER..."
+COREUTILS_URL="https://ftp.gnu.org/gnu/coreutils/coreutils-${COREUTILS_VER}.tar.xz"
+if [ ! -d "$DATASETS_DIR/coreutils" ]; then
+    echo "[1/4] Downloading Coreutils ${COREUTILS_VER}..."
     wget -c "$COREUTILS_URL" -P "$DATASETS_DIR"
-    tar -xf "$DATASETS_DIR/coreutils-$COREUTILS_VER.tar.xz" -C "$DATASETS_DIR"
-    mv "$DATASETS_DIR/coreutils-$COREUTILS_VER" "$DATASETS_DIR/coreutils"
+    tar -xf "$DATASETS_DIR/coreutils-${COREUTILS_VER}.tar.xz" -C "$DATASETS_DIR"
+    mv "$DATASETS_DIR/coreutils-${COREUTILS_VER}" "$DATASETS_DIR/coreutils"
+    rm "$DATASETS_DIR/coreutils-${COREUTILS_VER}.tar.xz"
 else
-    echo "Coreutils already exists."
+    echo "[1/4] Coreutils already exists."
 fi
 
-# SQLite
-SQLITE_VER="3450300" # 3.45.3
-SQLITE_URL="https://www.sqlite.org/2024/sqlite-src-$SQLITE_VER.zip"
-if [ ! -d "$DATASETS_DIR/sqlite" ]; then
-    echo "Downloading SQLite..."
-    wget -c "$SQLITE_URL" -P "$DATASETS_DIR"
-    unzip -q "$DATASETS_DIR/sqlite-src-$SQLITE_VER.zip" -d "$DATASETS_DIR"
-    mv "$DATASETS_DIR/sqlite-src-$SQLITE_VER" "$DATASETS_DIR/sqlite"
+# ------------------------------------------------------------------
+# Binutils 2.41
+# ------------------------------------------------------------------
+BINUTILS_VER="2.41"
+BINUTILS_URL="https://ftp.gnu.org/gnu/binutils/binutils-${BINUTILS_VER}.tar.xz"
+if [ ! -d "$DATASETS_DIR/binutils" ]; then
+    echo "[2/4] Downloading Binutils ${BINUTILS_VER}..."
+    wget -c "$BINUTILS_URL" -P "$DATASETS_DIR"
+    tar -xf "$DATASETS_DIR/binutils-${BINUTILS_VER}.tar.xz" -C "$DATASETS_DIR"
+    mv "$DATASETS_DIR/binutils-${BINUTILS_VER}" "$DATASETS_DIR/binutils"
+    rm "$DATASETS_DIR/binutils-${BINUTILS_VER}.tar.xz"
 else
-    echo "SQLite already exists."
+    echo "[2/4] Binutils already exists."
 fi
 
-# zlib
-ZLIB_VER="1.3.1"
-ZLIB_URL="https://github.com/madler/zlib/archive/refs/tags/v$ZLIB_VER.tar.gz"
-if [ ! -d "$DATASETS_DIR/zlib" ]; then
-    echo "Downloading zlib..."
-    wget -c "$ZLIB_URL" -P "$DATASETS_DIR" -O "$DATASETS_DIR/zlib-$ZLIB_VER.tar.gz"
-    tar -xf "$DATASETS_DIR/zlib-$ZLIB_VER.tar.gz" -C "$DATASETS_DIR"
-    mv "$DATASETS_DIR/zlib-$ZLIB_VER" "$DATASETS_DIR/zlib"
+# ------------------------------------------------------------------
+# Diffutils 3.10
+# ------------------------------------------------------------------
+DIFFUTILS_VER="3.10"
+DIFFUTILS_URL="https://ftp.gnu.org/gnu/diffutils/diffutils-${DIFFUTILS_VER}.tar.xz"
+if [ ! -d "$DATASETS_DIR/diffutils" ]; then
+    echo "[3/4] Downloading Diffutils ${DIFFUTILS_VER}..."
+    wget -c "$DIFFUTILS_URL" -P "$DATASETS_DIR"
+    tar -xf "$DATASETS_DIR/diffutils-${DIFFUTILS_VER}.tar.xz" -C "$DATASETS_DIR"
+    mv "$DATASETS_DIR/diffutils-${DIFFUTILS_VER}" "$DATASETS_DIR/diffutils"
+    rm "$DATASETS_DIR/diffutils-${DIFFUTILS_VER}.tar.xz"
 else
-    echo "zlib already exists."
+    echo "[3/4] Diffutils already exists."
 fi
 
+# ------------------------------------------------------------------
+# Findutils 4.9.0
+# ------------------------------------------------------------------
+FINDUTILS_VER="4.9.0"
+FINDUTILS_URL="https://ftp.gnu.org/gnu/findutils/findutils-${FINDUTILS_VER}.tar.xz"
+if [ ! -d "$DATASETS_DIR/findutils" ]; then
+    echo "[4/4] Downloading Findutils ${FINDUTILS_VER}..."
+    wget -c "$FINDUTILS_URL" -P "$DATASETS_DIR"
+    tar -xf "$DATASETS_DIR/findutils-${FINDUTILS_VER}.tar.xz" -C "$DATASETS_DIR"
+    mv "$DATASETS_DIR/findutils-${FINDUTILS_VER}" "$DATASETS_DIR/findutils"
+    rm "$DATASETS_DIR/findutils-${FINDUTILS_VER}.tar.xz"
+else
+    echo "[4/4] Findutils already exists."
+fi
+
+echo ""
 echo "Datasets ready in $DATASETS_DIR"
+echo "  coreutils  ${COREUTILS_VER}  (~100 programs)"
+echo "  binutils   ${BINUTILS_VER}   (~20 programs)"
+echo "  diffutils  ${DIFFUTILS_VER}  (4 programs)"
+echo "  findutils  ${FINDUTILS_VER}  (4 programs)"
+echo "  Total: ~128 GNU utility programs"

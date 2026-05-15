@@ -40,9 +40,10 @@ def generate_table_2_models(output_dir: Path):
 
 def generate_table_3_datasets(output_dir: Path):
     data = [
-        ["Coreutils", "100+", "~300", "GCC 11.4", "O0–O3"],
-        ["SQLite", "1", "~5000", "GCC 11.4", "O0–O3"],
-        ["Zlib", "1", "~500", "GCC 11.4", "O0–O3"],
+        ["Coreutils 9.1", "~100", "~3000", "GCC 11.4", "O0–O3"],
+        ["Binutils 2.41", "~20", "~1200", "GCC 11.4", "O0–O3"],
+        ["Diffutils 3.10", "4", "~300", "GCC 11.4", "O0–O3"],
+        ["Findutils 4.9.0", "4", "~350", "GCC 11.4", "O0–O3"],
     ]
     df = pd.DataFrame(data, columns=["Dataset", "Programs", "Functions", "Compiler", "Opt levels"])
     export_table(df, "table3_datasets", output_dir)

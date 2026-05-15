@@ -1,13 +1,28 @@
 # Datasets configuration
-benchmarks:
+# All four are GNU utility packages — independent small programs, standard C.
+
+datasets:
   - name: "coreutils"
     version: "9.1"
     url: "https://ftp.gnu.org/gnu/coreutils/coreutils-9.1.tar.xz"
-  - name: "openssl"
-    version: "3.0.7"
-    url: "https://www.openssl.org/source/openssl-3.0.7.tar.gz"
+    programs: "~100"
+
+  - name: "binutils"
+    version: "2.41"
+    url: "https://ftp.gnu.org/gnu/binutils/binutils-2.41.tar.xz"
+    programs: "~20"
+
+  - name: "diffutils"
+    version: "3.10"
+    url: "https://ftp.gnu.org/gnu/diffutils/diffutils-3.10.tar.xz"
+    programs: "4"
+
+  - name: "findutils"
+    version: "4.9.0"
+    url: "https://ftp.gnu.org/gnu/findutils/findutils-4.9.0.tar.xz"
+    programs: "4"
 
 filtering:
   min_lines: 10
   max_lines: 500
-  exclude_patterns: ["test_", "debug_"]
+  exclude_patterns: ["test_", "debug_", "_test", "main"]
