@@ -33,7 +33,9 @@ class RQ3Runner:
         self.model_mgr = ModelManager(cfg)
         self.metrics = MetricsCalculator()
 
-    def run(self, functions_csv: str):
+    def run(self, functions_csv: str | None = None):
+        if functions_csv is None:
+            functions_csv = str(Path(self.cfg.paths.results_dir) / "selected_functions_test.csv")
         df = pd.read_csv(functions_csv)
         opt_levels = self.cfg.compiler.opt_levels
         operators = list(self.obs_mgr.operators.keys())

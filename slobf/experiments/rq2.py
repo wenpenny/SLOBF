@@ -38,8 +38,8 @@ class RQ2Runner:
         self.metrics = MetricsCalculator()
 
     def run(self, train_timesteps: int = 5000):
-        train_csv = Path(self.cfg.paths.results_dir) / "selected_functions_rq2_train.csv"
-        test_csv = Path(self.cfg.paths.results_dir) / "selected_functions_rq2_test.csv"
+        train_csv = Path(self.cfg.paths.results_dir) / "selected_functions_train.csv"
+        test_csv = Path(self.cfg.paths.results_dir) / "selected_functions_test.csv"
 
         if not train_csv.exists() or not test_csv.exists():
             logger.error("RQ2 CSVs not found. Run 'slobf scan' first.")

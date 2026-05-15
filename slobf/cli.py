@@ -267,18 +267,15 @@ def rq2_cmd(config, train_steps, **kwargs):
 
 @main.command("rq3")
 @click.option("--config", "-c", default=None, help="Path to config YAML.")
-@click.option("--functions", default=None, help="Path to functions CSV.")
+@click.option("--functions", default=None, help="Path to functions CSV (default: selected_functions_test.csv).")
 @global_options
 def rq3_cmd(config, functions, **kwargs):
     """Run RQ3: impact of compilation optimization levels."""
     cfg, logger, exp_logger = _init(config, **kwargs)
 
     from slobf.experiments.rq3 import RQ3Runner
-    if functions is None:
-        functions = Path(cfg.paths.results_dir) / "selected_functions_rq3.csv"
-
     runner = RQ3Runner(cfg)
-    runner.run(str(functions))
+    runner.run(functions)
 
     exp_logger.log_run_end({"status": "completed"})
 
