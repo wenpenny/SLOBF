@@ -37,11 +37,19 @@ results/*.csv
 results/report/
 datasets/
 
+# Test artefacts
+tests/obf_output/
+.pytest_cache/
+
+# Claude Code
+.claude/
+
 # Compiled binaries produced during experiments
 *.o
 *.elf
 *.bin
 *.out
+*.exe
 
 # Model weights / large files
 *.pt
