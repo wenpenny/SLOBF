@@ -93,10 +93,11 @@ def scan(config, dataset, **kwargs):
 @click.option("--operator", default=None, help="Obfuscation operator (OPI/CFF/ER/DE/JCI/FS).")
 @click.option("--function", "func_name", default=None, help="Target function name.")
 @click.option("--source", "source_path", default=None, help="Path to source file.")
+@click.option("--output", "-o", "output_path", default=None, help="Output path for modified source (default: <source>.obf.c).")
 @click.option("--opt", default="O0", help="Optimisation level.")
 @global_options
-def obfuscate_cmd(config, operator, func_name, source_path, opt, **kwargs):
-    """Apply an obfuscation operator to a function in-place and compile."""
+def obfuscate_cmd(config, operator, func_name, source_path, output_path, opt, **kwargs):
+    """Apply an obfuscation operator to a function and save the modified source."""
     cfg, logger, exp_logger = _init(config, **kwargs)
 
     if not operator or not func_name or not source_path:
@@ -104,11 +105,14 @@ def obfuscate_cmd(config, operator, func_name, source_path, opt, **kwargs):
         return
 
     from slobf.obfuscators.manager import ObfuscationManager
-    from slobf.compiler.manager import CompilerManager
-    from slobf.parser.c_parser import CParser, FunctionInfo
+    from slobf.parser.c_parser import CParser
 
     parser = CParser()
-    func_info = FunctionInfo(name=func_name, source_file=source_path)
+    all_funcs = parser.parse_file(Path(source_path))
+    func_info = next((f for f in all_funcs if f.name == func_name), None)
+    if func_info is None:
+        logger.error("Function '%s' not found in %s.", func_name, source_path)
+        return
 
     mgr = ObfuscationManager(cfg)
     result = mgr.obfuscate_function_in_file(
@@ -119,6 +123,15 @@ def obfuscate_cmd(config, operator, func_name, source_path, opt, **kwargs):
     if result and result.success:
         logger.info("Obfuscation successful. Lines: +%d / -%d",
                     result.inserted_lines, result.removed_lines)
+
+        # Save modified source
+        out_path = Path(output_path) if output_path else Path(source_path).with_suffix(".obf.c")
+        out_path.write_text(result.changed_source, encoding="utf-8")
+        logger.info("Obfuscated source saved to: %s", out_path)
+
+        # Print diff summary
+        if result.diff:
+            logger.info("Diff:\n%s", result.diff[:2000])
     else:
         logger.error("Obfuscation failed: %s",
                      result.reason_if_failed if result else "unknown operator")
