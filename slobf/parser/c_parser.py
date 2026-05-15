@@ -174,12 +174,14 @@ class CParser:
 
     def _find_functions(self, node: Node, content: bytes, file_path: Path,
                         dataset_name: str, program_name: str, functions: list[FunctionInfo]):
-        if node.type == "function_definition":
-            info = self._extract_function_info(node, content, file_path, dataset_name, program_name)
-            if info:
-                functions.append(info)
-        for child in node.children:
-            self._find_functions(child, content, file_path, dataset_name, program_name, functions)
+        stack = [node]
+        while stack:
+            n = stack.pop()
+            if n.type == "function_definition":
+                info = self._extract_function_info(n, content, file_path, dataset_name, program_name)
+                if info:
+                    functions.append(info)
+            stack.extend(n.children)
 
     def _extract_function_info(self, node: Node, content: bytes,
                                 file_path: Path, dataset_name: str, program_name: str) -> FunctionInfo | None:
