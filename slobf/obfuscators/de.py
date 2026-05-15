@@ -97,19 +97,22 @@ class DEObfuscator(BaseObfuscator):
         if abs(val) <= 1:
             return None  # don't encode trivial constants
 
-        # Pick between XOR-based encoding strategies (avoid unsigned casts)
-        strategy = rng.randint(0, 1)
+        # Self-inverse encoding strategies
+        strategy = rng.randint(0, 2)
 
         if strategy == 0:
-            # Multi-layer XOR: ((C ^ K1) - K2) ^ K3
+            # Double XOR: ((C ^ K) ^ K) = C
+            k = rng.randint(0x1000, 0x7FFFFFFF)
+            return f"(({val} ^ {k}) ^ {k})"
+        elif strategy == 1:
+            # Add-subtract chain: ((C + K) - K) = C
+            k = rng.randint(1, 0xFFFFF)
+            return f"(({val} + {k}) - {k})"
+        else:
+            # Nested XOR chain: ((((C ^ K1) + K2) - K2) ^ K1) = C
             k1 = rng.randint(0x1000, 0x7FFFFFFF)
             k2 = rng.randint(1, 0xFFFF)
-            k3 = rng.randint(0x1000, 0x7FFFFFFF)
-            return f"((({val} ^ {k1}) - {k2}) ^ {k3})"
-        else:
-            # Double XOR with intermediate arithmetic
-            k = rng.randint(0x1000, 0x7FFFFFFF)
-            return f"((({val} ^ {k}) + ({val} & 0)) ^ {k})"
+            return f"(((({val} ^ {k1}) + {k2}) - {k2}) ^ {k1})"
 
     def _encode_string(self, node: Node, source: bytes, rng: random.Random) -> str | None:
         """Replace "abc" with a runtime-decoded stack array.
@@ -146,7 +149,7 @@ class DEObfuscator(BaseObfuscator):
         return (
             f"(__extension__({{"
             f"static char {var}[] = {{{', '.join(encoded_chars)}}};"
-            f"for(int _i=0;_i<sizeof({var})-1;_i++) {var}[_i]^={var}[sizeof({var})-1];"
+            f"for(int _i=0;_i<sizeof({var});_i++) {var}[_i]^={var}[sizeof({var})-1];"
             f"{var};"
             f"}}))"
         )

@@ -62,9 +62,12 @@ class FSObfuscator(BaseObfuscator):
         first_half = stmts[:split_idx]
         second_half = stmts[split_idx:]
 
-        # Don't pass return statements to the helper
+        # Check if a return statement is in the second half
+        return_expr = None
         for i, stmt in enumerate(second_half):
             if stmt.type == "return_statement":
+                ret_text = source[stmt.start_byte:stmt.end_byte].decode("utf-8", errors="ignore")
+                return_expr = ret_text[len("return"):].rstrip(";").strip()
                 second_half = second_half[:i]
                 break
 
@@ -72,10 +75,23 @@ class FSObfuscator(BaseObfuscator):
             res.reason_if_failed = "Second half too small after removing returns"
             return res
 
+        # Extract function return type (everything before function_declarator)
+        ret_type = "int"
+        for child in func_node.children:
+            if child.type == "function_declarator":
+                break
+            txt = source[child.start_byte:child.end_byte].decode("utf-8", errors="ignore").strip()
+            if txt and child.type not in ("storage_class_specifier",):
+                ret_type = source[func_node.start_byte:child.end_byte].decode("utf-8", errors="ignore").strip()
+                break
+
         second_half_text = " ".join(
             source[s.start_byte:s.end_byte].decode("utf-8", errors="ignore")
             for s in second_half
         )
+        # Also include return expression text for variable detection
+        if return_expr:
+            second_half_text += " " + return_expr
 
         # Extract (name, type) for locally declared variables + function parameters
         imported_vars = self._find_declared_vars(first_half, source)
@@ -91,15 +107,23 @@ class FSObfuscator(BaseObfuscator):
 
         # Build helper with correct types
         params = ", ".join(f"{typ} {name}" for name, typ in passed_vars)
-        helper_sig = f"static void {helper_name}({params})"
+        if return_expr:
+            helper_sig = f"static {ret_type} {helper_name}({params})"
+        else:
+            helper_sig = f"static void {helper_name}({params})"
         helper_lines = [helper_sig + " {"]
         for stmt in second_half:
             stmt_text = source[stmt.start_byte:stmt.end_byte].decode("utf-8", errors="ignore")
             helper_lines.append(f"    {stmt_text}")
+        if return_expr:
+            helper_lines.append(f"    return {return_expr};")
         helper_lines.append("}")
 
         call_args = ", ".join(name for name, _ in passed_vars) if passed_vars else ""
-        call_stmt = f"{indent}    {helper_name}({call_args});"
+        if return_expr:
+            call_stmt = f"{indent}    return {helper_name}({call_args});"
+        else:
+            call_stmt = f"{indent}    {helper_name}({call_args});"
 
         first_second = second_half[0]
 

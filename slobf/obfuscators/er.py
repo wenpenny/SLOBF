@@ -157,9 +157,9 @@ class ERObfuscator(BaseObfuscator):
         ],
         # Multiplication
         "*": [
+            lambda l, r, _: f"({l} << 1)" if ERObfuscator._is_int(r, "2") else f"({r} << 1)" if ERObfuscator._is_int(l, "2") else None,
             lambda l, r, _: f"(({l} + {l}) * ({r} / 2))" if ERObfuscator._is_int2(r) else None,
-            lambda l, r, _: f"(({l} << 1) * {r})" if ERObfuscator._is_int(r, "2") else f"(({r} << 1) * {l})" if ERObfuscator._is_int(l, "2") else None,
-            lambda l, r, _: f"(({l} << 1) * ({r} / 2))" if ERObfuscator._is_int2(r) else None,
+            lambda l, r, _: f"(({l} / 2) * ({r} + {r}))" if ERObfuscator._is_int2(l) else None,
         ],
         "/": [
             lambda l, r, _: f"(({l}) / ({r}))",
