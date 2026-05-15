@@ -74,14 +74,28 @@ class DatasetManager:
             reasons.append("Variadic function")
         if f.name == "main":
             reasons.append("main function")
-        if f.has_goto:
-            reasons.append("Contains goto")
-
         if reasons:
             f.ineligible_reason = "; ".join(reasons)
             f.eligibility = {"general": False}
         else:
             f.eligibility = {"general": True}
+            # Per-operator eligibility (pre-computed so experiments can skip)
+            f.eligibility["OPI"] = f.num_statements >= 2
+            f.eligibility["CFF"] = (
+                f.num_statements >= 5
+                and not f.has_goto
+                and not f.has_switch
+                and not f.has_break
+                and not f.has_continue
+            )
+            f.eligibility["ER"] = True
+            f.eligibility["DE"] = True
+            f.eligibility["JCI"] = f.num_statements >= 2
+            f.eligibility["FS"] = (
+                f.num_statements >= 8
+                and not f.is_variadic
+                and f.num_returns <= 1
+            )
 
     def sample_functions(self, df: pd.DataFrame):
         """Split eligible functions into dataset / test-set shared by all RQs.
