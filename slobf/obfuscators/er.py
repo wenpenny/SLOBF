@@ -184,19 +184,14 @@ class ERObfuscator(BaseObfuscator):
             lambda l, r, _: f"({l} * 2)" if ERObfuscator._is_int(r, "1") else None,
             lambda l, r, _: f"({l} + {l})" if ERObfuscator._is_int(r, "1") else None,
         ],
-        # Right shift
-        ">>": [
-            lambda l, r, _: f"((unsigned)({l}) / 2)" if ERObfuscator._is_int(r, "1") else None,
-        ],
+        # Right shift: skip — semantics differ for signed vs unsigned
         # Logical AND
         "&&": [
             lambda l, r, _: f"(!(!({l}) || !({r})))",
-            lambda l, r, _: f"((int)({l}) & (int)({r}))",
         ],
         # Logical OR
         "||": [
             lambda l, r, _: f"(!(!({l}) && !({r})))",
-            lambda l, r, _: f"((int)({l}) | (int)({r}))",
         ],
         # Equality
         "==": [
