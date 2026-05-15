@@ -153,35 +153,9 @@ class DEObfuscator(BaseObfuscator):
 
         var = f"slobf_s_{rng.randint(1000, 9999)}"
 
-        # Generate runtime-decoded array using compound literal + loop
-        n = len(content) + 1
-        encoded_init = ", ".join(encoded_chars)
-
-        return (
-            f"((const char[]){{\\n"
-            f"    {encoded_init}\\n"
-            f"}})"
-            f"[{n-1}] == {key} ? "
-            f"\"{content}\" : \"{content}\""
-        )
-
-        # Actually the above is still a runtime-constant. Let me use the simpler,
-        # correct approach: a helper variable that decodes at declaration.
-        #
-        # Simpler correct version:
-        #   (slobf_s_NNN[sizeof(slobf_s_NNN)-1] ^= ... produces correct string)
-        # But the cleanest approach for embedded constants in expressions:
-        #
-        # Replace "abc" with:
-        #   ({ static char slobf_s_NNN[] = {K^'a', K^'b', K^'c', K};
-        #      for(int _i=0;_i<sizeof(slobf_s_NNN)-1;_i++) slobf_s_NNN[_i]^=slobf_s_NNN[sizeof(slobf_s_NNN)-1];
-        #      slobf_s_NNN; })
-        #
-        # But this uses GNU statement expressions ({...}) which are GCC-specific.
-        # For a research framework targeting GCC, this is acceptable.
         return (
             f"(__extension__({{"
-            f"static char {var}[] = {{{encoded_init}}};"
+            f"static char {var}[] = {{{', '.join(encoded_chars)}}};"
             f"for(int _i=0;_i<sizeof({var})-1;_i++) {var}[_i]^={var}[sizeof({var})-1];"
             f"{var};"
             f"}}))"

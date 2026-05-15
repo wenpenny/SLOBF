@@ -106,7 +106,7 @@ class RQ2Runner:
         current_path = source_path
 
         # Apply each operator in sequence
-        for op_name in sequence:
+        for i, op_name in enumerate(sequence):
             obs_result = self.obs_mgr.obfuscate_function_in_file(
                 current_path, func_info, op_name, seed=self.cfg.seed, intensity=1.0
             )
@@ -115,6 +115,15 @@ class RQ2Runner:
                 entry["failed_at"] = op_name
                 return entry
             current_source = obs_result.changed_source
+            # Write modified source so the next operator sees accumulated changes
+            if i < len(sequence) - 1:
+                import tempfile
+                tmp = tempfile.NamedTemporaryFile(
+                    mode="w", suffix=".c", delete=False, dir=source_path.parent
+                )
+                tmp.write(current_source)
+                tmp.close()
+                current_path = Path(tmp.name)
 
         # Compile with the final modified source
         comp = self.comp_mgr.compile_obfuscated(
