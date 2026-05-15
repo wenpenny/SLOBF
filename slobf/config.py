@@ -40,11 +40,26 @@ class MetricsConfig:
 
 
 @dataclass
+class ModelConfig:
+    path: str = ""
+    type: str = ""
+
+
+@dataclass
+class ModelsConfig:
+    jtrans: ModelConfig = field(default_factory=ModelConfig)
+    clap: ModelConfig = field(default_factory=ModelConfig)
+    palmtree: ModelConfig = field(default_factory=ModelConfig)
+    cebin: ModelConfig = field(default_factory=ModelConfig)
+
+
+@dataclass
 class SlobfConfig:
     paths: PathsConfig = field(default_factory=PathsConfig)
     compiler: CompilerConfig = field(default_factory=CompilerConfig)
     obfuscation: ObfuscationConfig = field(default_factory=ObfuscationConfig)
     metrics: MetricsConfig = field(default_factory=MetricsConfig)
+    models: ModelsConfig = field(default_factory=ModelsConfig)
     seed: int = 42
     threads: int = 4
     dry_run: bool = False
@@ -101,6 +116,18 @@ def load_config(
     if "metrics" in raw:
         cfg.metrics = MetricsConfig(**{k: v for k, v in raw["metrics"].items()
                                         if k in MetricsConfig.__dataclass_fields__})
+    if "models" in raw:
+        models_raw = raw["models"]
+        cfg.models = ModelsConfig(
+            jtrans=ModelConfig(**{k: v for k, v in models_raw.get("jtrans", {}).items()
+                                  if k in ModelConfig.__dataclass_fields__}),
+            clap=ModelConfig(**{k: v for k, v in models_raw.get("clap", {}).items()
+                                if k in ModelConfig.__dataclass_fields__}),
+            palmtree=ModelConfig(**{k: v for k, v in models_raw.get("palmtree", {}).items()
+                                    if k in ModelConfig.__dataclass_fields__}),
+            cebin=ModelConfig(**{k: v for k, v in models_raw.get("cebin", {}).items()
+                                  if k in ModelConfig.__dataclass_fields__}),
+        )
 
     for attr in ("seed", "threads", "dry_run", "resume", "force", "verbose"):
         if attr in raw:

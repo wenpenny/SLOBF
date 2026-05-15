@@ -68,5 +68,5 @@ bash scripts/run_all.sh --threads 8
 - **接入新模型**: 在 `slobf/models/` 下实现 `ModelAdapter` 协议。
 
 ## 7. 常见错误 (FAQ)
-- **Tigress 未找到**: 请确保已安装 Tigress 并设置 `TIGRESS_HOME` 环境变量。
+
 - **内存不足**: 深度学习模型评测时建议至少 16GB 显存或 32GB 系统内存。

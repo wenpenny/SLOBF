@@ -32,15 +32,19 @@ class ModelManager:
         self.cfg = cfg
         self.adapters: dict[str, ModelAdapter] = {}
 
-        # Use checkpoints from config if available, otherwise mock
-        model_paths = cfg._raw.get("models", {})
+        model_cfgs = {
+            "CEBin": cfg.models.cebin,
+            "JTrans": cfg.models.jtrans,
+            "CLAP": cfg.models.clap,
+            "PalmTree": cfg.models.palmtree,
+        }
 
         for name, cls in _MODEL_MAP.items():
             if name == "CLAP":
                 self.adapters[name] = cls()
             else:
-                path = model_paths.get(name.lower() + "_path", None)
-                self.adapters[name] = cls(model_path=path)
+                mc = model_cfgs[name]
+                self.adapters[name] = cls(model_path=mc.path if mc.path else None)
 
     def setup_models(self):
         for name, adapter in self.adapters.items():
