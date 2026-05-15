@@ -1,19 +1,6 @@
-"""metrics — Evaluation metrics computation.
+"""Evaluation metrics and semantic equivalence verification."""
 
-Planned metrics:
-  cosine_similarity (CS)   — per-pair embedding cosine distance
-  top_k_recall             — recall@K for a query pool
-  shannon_entropy          — instruction-level entropy of binary
-  code_growth_rate         — (obf_size - orig_size) / orig_size
-  binary_size_delta        — absolute byte increase
-  compile_success_rate     — fraction of functions that compiled
-  test_pass_rate           — fraction of test cases still passing
+from slobf.metrics.calculator import MetricsCalculator
+from slobf.metrics.semantic import SemanticVerifier
 
-Public API (to be implemented):
-  MetricsComputer.cosine_similarity(emb_a, emb_b) -> float
-  MetricsComputer.top_k(query, pool, k) -> float
-  MetricsComputer.shannon_entropy(binary_function) -> float
-  MetricsComputer.code_growth_rate(orig, obf) -> float
-  MetricsComputer.compile_success_rate(results) -> float
-  MetricsComputer.summarise(results) -> pd.DataFrame
-"""
+__all__ = ["MetricsCalculator", "SemanticVerifier"]

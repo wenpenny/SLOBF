@@ -1,82 +1,65 @@
 """Metrics calculation for SLOBF."""
 
-import json
-import logging
+from __future__ import annotations
+
 import math
+import logging
 from pathlib import Path
 from typing import Any
 
-import pandas as pd
-
 logger = logging.getLogger(__name__)
 
-class MetricsCalculator:
-    def __init__(self, results_dir: Path):
-        self.results_dir = results_dir
 
-    def calculate_entropy(self, data: str | list) -> float:
-        """Calculate Shannon entropy of a sequence."""
+class MetricsCalculator:
+    """Compute evaluation metrics for obfuscation experiments."""
+
+    @staticmethod
+    def cosine_similarity(emb1, emb2) -> float:
+        import numpy as np
+        n1 = np.linalg.norm(emb1)
+        n2 = np.linalg.norm(emb2)
+        if n1 == 0 or n2 == 0:
+            return 0.0
+        return float(np.dot(emb1, emb2) / (n1 * n2))
+
+    @staticmethod
+    def topk_metrics(rank: int, k_values: list[int] = (1, 5, 10)) -> dict[str, float]:
+        """Compute Top-K hit and MRR from a rank value."""
+        metrics = {"rank": rank, "mrr": 1.0 / rank if rank > 0 else 0.0}
+        for k in k_values:
+            metrics[f"top{k}_hit"] = 1 if 1 <= rank <= k else 0
+        return metrics
+
+    @staticmethod
+    def calculate_entropy(data: list | str) -> float:
         if not data:
             return 0.0
-        
         counts = {}
         for x in data:
             counts[x] = counts.get(x, 0) + 1
-        
+        total = len(data)
         entropy = 0.0
-        length = len(data)
-        for count in counts.values():
-            p = count / length
+        for c in counts.values():
+            p = c / total
             entropy -= p * math.log2(p)
         return entropy
 
-    def run_check(self):
-        """Perform 'True Obfuscation' check by comparing original and obfuscated functions."""
-        extraction_csv = self.results_dir / "extraction_results.csv"
-        if not extraction_csv.exists():
-            logger.error("Extraction results not found")
-            return
-
-        df = pd.read_csv(extraction_csv)
-        
-        # Load obfuscation summary to get source hashes
-        obs_summary = pd.read_csv(self.results_dir / "obfuscation_summary.csv")
-        
-        results = []
-        
-        # Group by function and optimization level
-        for (func_id, opt), group in df.groupby(["function_id", "opt"]):
-            # Get original
-            orig_row = group[group["operator"].isna()]
-            if orig_row.empty:
-                continue
-            
-            with open(orig_row.iloc[0]["json_path"]) as f:
-                orig_data = json.load(f)
-
-            # Get obfuscated versions
-            for _, obs_row in group[group["operator"].notna()].iterrows():
-                with open(obs_row["json_path"]) as f:
-                    obs_data = json.load(f)
-                
-                # Binary change check
-                binary_changed = (orig_data["instruction_hash"] != obs_data["instruction_hash"]) or \
-                                 (orig_data["opcode_hash"] != obs_data["opcode_hash"])
-                
-                # Metrics
-                results.append({
-                    "function_id": func_id,
-                    "opt": opt,
-                    "operator": obs_row["operator"],
-                    "seed": obs_row["seed"],
-                    "binary_changed": binary_changed,
-                    "instr_count_growth": obs_data["instruction_count"] / orig_data["instruction_count"] if orig_data["instruction_count"] > 0 else 0,
-                    "size_growth": obs_data["size"] / orig_data["size"] if orig_data["size"] > 0 else 0,
-                    "opcode_entropy_orig": self.calculate_entropy(orig_data["opcodes"]),
-                    "opcode_entropy_obs": self.calculate_entropy(obs_data["opcodes"]),
-                    "bb_count_orig": orig_data["bb_count"],
-                    "bb_count_obs": obs_data["bb_count"],
-                })
-
-        pd.DataFrame(results).to_csv(self.results_dir / "true_obfuscation_check.csv", index=False)
-        logger.info("True obfuscation check complete.")
+    @staticmethod
+    def binary_diff_stats(orig_func: dict, obs_func: dict) -> dict[str, Any]:
+        """Compare original and obfuscated binary function stats."""
+        oi = orig_func.get("instruction_count", 1) or 1
+        osize = orig_func.get("size", 1) or 1
+        return {
+            "instr_count_orig": oi,
+            "instr_count_obs": obs_func.get("instruction_count", 0),
+            "instr_growth_ratio": obs_func.get("instruction_count", 0) / oi,
+            "size_growth_ratio": obs_func.get("size", 0) / osize,
+            "bb_count_orig": orig_func.get("bb_count", 0),
+            "bb_count_obs": obs_func.get("bb_count", 0),
+            "opcode_entropy_orig": MetricsCalculator.calculate_entropy(
+                orig_func.get("opcodes", [])
+            ),
+            "opcode_entropy_obs": MetricsCalculator.calculate_entropy(
+                obs_func.get("opcodes", [])
+            ),
+        }

@@ -3,17 +3,12 @@
 from __future__ import annotations
 
 import copy
-import os
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
 import yaml
 
-
-# ---------------------------------------------------------------------------
-# Top-level config dataclasses
-# ---------------------------------------------------------------------------
 
 @dataclass
 class PathsConfig:
@@ -27,13 +22,13 @@ class PathsConfig:
 class CompilerConfig:
     cc: str = "gcc"
     opt_levels: list[str] = field(default_factory=lambda: ["O0", "O1", "O2", "O3"])
-    extra_cflags: str = ""
-    timeout_seconds: int = 60
+    extra_cflags: str = "-g"
+    timeout_seconds: int = 120
 
 
 @dataclass
 class ObfuscationConfig:
-    operators: list[str] = field(default_factory=list)
+    operators: list[str] = field(default_factory=lambda: ["OPI", "CFF", "ER", "DE", "JCI", "FS"])
     max_combo_depth: int = 3
 
 
@@ -41,6 +36,7 @@ class ObfuscationConfig:
 class MetricsConfig:
     top_k: list[int] = field(default_factory=lambda: [1, 5, 10])
     similarity_threshold: float = 0.5
+    semantic_test_cases: int = 50
 
 
 @dataclass
@@ -55,16 +51,10 @@ class SlobfConfig:
     resume: bool = False
     force: bool = False
     verbose: bool = False
-    # Raw dict for sub-sections not yet typed
     _raw: dict = field(default_factory=dict, repr=False)
 
 
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
-
 def _deep_merge(base: dict, override: dict) -> dict:
-    """Recursively merge *override* into *base* (base is mutated in-place)."""
     for k, v in override.items():
         if k in base and isinstance(base[k], dict) and isinstance(v, dict):
             _deep_merge(base[k], v)
@@ -81,22 +71,10 @@ def _load_yaml(path: str | Path) -> dict:
         return yaml.safe_load(f) or {}
 
 
-# ---------------------------------------------------------------------------
-# Public API
-# ---------------------------------------------------------------------------
-
 def load_config(
     config_path: str | Path | None = None,
     overrides: dict[str, Any] | None = None,
 ) -> SlobfConfig:
-    """Load config from YAML, optionally merging CLI overrides.
-
-    Merge order (later wins):
-      1. built-in dataclass defaults
-      2. configs/default.yaml (if present)
-      3. *config_path* YAML (if given)
-      4. *overrides* dict (CLI flags)
-    """
     raw: dict = {}
 
     default_yaml = Path("configs/default.yaml")
@@ -111,7 +89,6 @@ def load_config(
 
     cfg = SlobfConfig(_raw=copy.deepcopy(raw))
 
-    # Hydrate typed sub-sections
     if "paths" in raw:
         cfg.paths = PathsConfig(**{k: v for k, v in raw["paths"].items()
                                    if k in PathsConfig.__dataclass_fields__})
@@ -130,9 +107,3 @@ def load_config(
             setattr(cfg, attr, raw[attr])
 
     return cfg
-
-
-def config_to_dict(cfg: SlobfConfig) -> dict:
-    """Convert config to a plain dict suitable for JSON serialisation."""
-    import dataclasses
-    return dataclasses.asdict(cfg)

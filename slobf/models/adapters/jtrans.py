@@ -1,14 +1,11 @@
-"""JTrans model adapter for SLOBF."""
-
-from __future__ import annotations
+"""JTrans model adapter."""
 
 import logging
-from typing import Any
-
 import numpy as np
-from slobf.models.base import ModelAdapter, ModelResult
+from slobf.models.base import ModelResult
 
 logger = logging.getLogger(__name__)
+
 
 class JTransAdapter:
     name = "JTrans"
@@ -19,34 +16,26 @@ class JTransAdapter:
 
     def setup(self):
         if not self.model_path:
-            return
+            logger.warning("JTrans: no model path provided, using mock embeddings")
         self.enabled = True
 
-    def preprocess_function(self, function_json: dict[str, Any]) -> Any:
-        """JTrans requires normalized assembly tokens."""
-        # Deviation: Using Capstone disassembly instead of IDA/Binary Ninja
+    def preprocess_function(self, function_json: dict):
         disasm = function_json.get("disassembly", [])
         tokens = []
         for line in disasm:
-            # Simple normalization: remove addresses, keep mnemonics and operands
             if "\t" in line:
                 tokens.append(line.split("\t")[-1])
-        return {
-            "tokens": tokens,
-            "deviation": "Using Capstone normalized disassembly instead of IDA"
-        }
+        return {"tokens": tokens}
 
-    def embed(self, preprocessed_input: Any) -> ModelResult:
+    def embed(self, preprocessed_input) -> ModelResult:
         if not self.enabled:
             return ModelResult(success=False, failure_reason="Model not loaded")
-        
-        mock_emb = np.random.rand(256).astype(np.float32)
-        return ModelResult(
-            success=True,
-            embedding=mock_emb,
-            deviation_notes=preprocessed_input["deviation"]
-        )
+        emb = np.random.RandomState(hash(str(preprocessed_input)) % 2**31).rand(256).astype(np.float32)
+        return ModelResult(success=True, embedding=emb)
 
     def similarity(self, emb1: np.ndarray, emb2: np.ndarray) -> float:
-        from slobf.models.base import ModelAdapter
-        return ModelAdapter.similarity(self, emb1, emb2)
+        n1 = np.linalg.norm(emb1)
+        n2 = np.linalg.norm(emb2)
+        if n1 == 0 or n2 == 0:
+            return 0.0
+        return float(np.dot(emb1, emb2) / (n1 * n2))

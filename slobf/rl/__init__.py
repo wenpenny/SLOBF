@@ -1,13 +1,7 @@
-"""rl — Reinforcement learning search for obfuscation operator sequences.
+"""Reinforcement learning for obfuscation sequence search."""
 
-Planned approach:
-  - State: current operator combo applied to a function
-  - Action: add / remove / swap one operator
-  - Reward: evasion_gain - lambda * overhead_cost
-  - Algorithm: PPO or DQN (torch-based, CPU-friendly for small action spaces)
-  - Also supports random search and greedy hill-climbing as baselines
+from slobf.rl.env import ObfuscationEnv
+from slobf.rl.agent import RLAgent, BaselineStrategies
+from slobf.rl.cache import ObfuscationCache
 
-Public API (to be implemented):
-  RLSearchAgent(config).search(function_pool) -> list[ObfuscationPolicy]
-  ObfuscationPolicy: operators, expected_reward, overhead_estimate
-"""
+__all__ = ["ObfuscationEnv", "RLAgent", "BaselineStrategies", "ObfuscationCache"]

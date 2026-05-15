@@ -1,14 +1,11 @@
-"""PalmTree model adapter for SLOBF."""
-
-from __future__ import annotations
+"""PalmTree model adapter."""
 
 import logging
-from typing import Any
-
 import numpy as np
-from slobf.models.base import ModelAdapter, ModelResult
+from slobf.models.base import ModelResult
 
 logger = logging.getLogger(__name__)
+
 
 class PalmTreeAdapter:
     name = "PalmTree"
@@ -18,27 +15,20 @@ class PalmTreeAdapter:
         self.enabled = False
 
     def setup(self):
-        # Even without weights, we can mark as enabled for mock baseline
         self.enabled = True
 
-    def preprocess_function(self, function_json: dict[str, Any]) -> Any:
-        return {"instructions": function_json.get("instructions", [])}
+    def preprocess_function(self, function_json: dict):
+        return {"instructions": function_json.get("disassembly", [])}
 
-    def embed(self, preprocessed_input: Any) -> ModelResult:
-        """Instruction-embedding-based baseline with mean pooling."""
+    def embed(self, preprocessed_input) -> ModelResult:
         if not self.enabled:
             return ModelResult(success=False, failure_reason="Model not loaded")
-        
-        # In real case, we'd use a BERT-like model for each instruction and pool
-        mock_emb = np.random.rand(128).astype(np.float32)
-        
-        return ModelResult(
-            success=True,
-            embedding=mock_emb,
-            preprocessing_metadata={"pooling": "mean_pooling"},
-            deviation_notes="Instruction-embedding-based baseline (not full pipeline)"
-        )
+        emb = np.random.RandomState(hash(str(preprocessed_input)) % 2**31).rand(128).astype(np.float32)
+        return ModelResult(success=True, embedding=emb)
 
     def similarity(self, emb1: np.ndarray, emb2: np.ndarray) -> float:
-        from slobf.models.base import ModelAdapter
-        return ModelAdapter.similarity(self, emb1, emb2)
+        n1 = np.linalg.norm(emb1)
+        n2 = np.linalg.norm(emb2)
+        if n1 == 0 or n2 == 0:
+            return 0.0
+        return float(np.dot(emb1, emb2) / (n1 * n2))

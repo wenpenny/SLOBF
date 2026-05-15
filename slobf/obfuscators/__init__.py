@@ -1,24 +1,20 @@
-"""obfuscators — Source-level semantic-preserving obfuscation operators.
+"""SLOBF obfuscation operators — AST-based, semantics-preserving."""
 
-Planned operators (OPx naming follows paper convention):
-  OP1  — Opaque predicate insertion
-  OP2  — Dead code insertion
-  OP3  — Variable renaming
-  OP4  — Control-flow flattening (switch-dispatch)
-  OP5  — Instruction substitution (a+b → a-(-b))
-  OP6  — Loop transformation (for ↔ while, loop unrolling)
-  OP7  — Function outlining / inlining
-  OP8  — String literal encryption stub
-  OP9  — Constant folding reversal (literals → expressions)
-  OP10 — Array / struct reordering
+from slobf.obfuscators.base import BaseObfuscator, ObfuscationResult
+from slobf.obfuscators.opi import OPIObfuscator
+from slobf.obfuscators.cff import CFFObfuscator
+from slobf.obfuscators.er import ERObfuscator
+from slobf.obfuscators.de import DEObfuscator
+from slobf.obfuscators.jci import JCIObfuscator
+from slobf.obfuscators.fs import FSObfuscator
 
-Each operator is a class inheriting from BaseObfuscator with:
-  .name: str
-  .apply(function_record) -> ObfuscatedFunction
-  .is_applicable(function_record) -> bool
-
-Public API (to be implemented):
-  BaseObfuscator (ABC)
-  ObfuscatorRegistry.get(name) -> BaseObfuscator
-  apply_pipeline(operators, function_record) -> ObfuscatedFunction
-"""
+__all__ = [
+    "BaseObfuscator",
+    "ObfuscationResult",
+    "OPIObfuscator",
+    "CFFObfuscator",
+    "ERObfuscator",
+    "DEObfuscator",
+    "JCIObfuscator",
+    "FSObfuscator",
+]
