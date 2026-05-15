@@ -68,14 +68,17 @@ class ERObfuscator(BaseObfuscator):
     # AST collection
     # ------------------------------------------------------------------
 
+    _EXPR_TYPES = {"binary_expression", "unary_expression", "update_expression",
+                   "parenthesized_expression"}
+
     @staticmethod
-    def _collect_expr_nodes(root: Node) -> list[Node]:
+    def _collect_expr_nodes(root: Node, parent_is_expr: bool = False) -> list[Node]:
         results = []
-        if root.type in ("binary_expression", "unary_expression", "update_expression",
-                         "parenthesized_expression"):
+        is_expr = root.type in ERObfuscator._EXPR_TYPES
+        if is_expr and not parent_is_expr:
             results.append(root)
         for child in root.children:
-            results.extend(ERObfuscator._collect_expr_nodes(child))
+            results.extend(ERObfuscator._collect_expr_nodes(child, is_expr))
         return results
 
     # ------------------------------------------------------------------
@@ -158,9 +161,7 @@ class ERObfuscator(BaseObfuscator):
             lambda l, r, _: f"(({l} << 1) * {r})" if ERObfuscator._is_int(r, "2") else f"(({r} << 1) * {l})" if ERObfuscator._is_int(l, "2") else None,
             lambda l, r, _: f"(({l} << 1) * ({r} / 2))" if ERObfuscator._is_int2(r) else None,
         ],
-        # Division by 2 → right shift (unsigned)
         "/": [
-            lambda l, r, _: f"((unsigned)({l}) >> 1)" if ERObfuscator._is_int(r, "2") else None,
             lambda l, r, _: f"(({l}) / ({r}))",
         ],
         # Bitwise AND
@@ -257,13 +258,9 @@ class ERObfuscator(BaseObfuscator):
 
     def _rewrite_update(self, node: Node, source: bytes, rng: random.Random) -> str | None:
         text = self._node_text(node, source)
-        # i++  →  (i += 1)
-        # i--  →  (i -= 1)
-        if text.endswith("++"):
-            return f"({text[:-2]} += 1)"
-        elif text.endswith("--"):
-            return f"({text[:-2]} -= 1)"
-        elif text.startswith("++"):
+        # Only rewrite pre-increment/decrement (post-increment returns old value,
+        # which cannot be expressed with += without a temporary variable).
+        if text.startswith("++"):
             return f"({text[2:]} += 1)"
         elif text.startswith("--"):
             return f"({text[2:]} -= 1)"

@@ -72,8 +72,14 @@ class OPIObfuscator(BaseObfuscator):
             res.reason_if_failed = "No statements to wrap"
             return res
 
-        num_inserts = max(1, min(len(stmts) // 2, int(intensity * 5)))
-        chosen = rng.sample(stmts, num_inserts)
+        # Skip declarations: wrapping them in if-blocks breaks variable scoping
+        wrappable = [s for s in stmts if s.type != "declaration"]
+        if not wrappable:
+            res.reason_if_failed = "No wrappable statements (only declarations)"
+            return res
+
+        num_inserts = max(1, min(len(wrappable) // 2, int(intensity * 5)))
+        chosen = rng.sample(wrappable, num_inserts)
 
         var_base = f"slobf_opi_{rng.randint(10000, 99999)}"
         new_source = source
@@ -81,9 +87,7 @@ class OPIObfuscator(BaseObfuscator):
         # Process in reverse byte order
         for i, stmt in enumerate(sorted(chosen, key=lambda n: n.start_byte, reverse=True)):
             stmt_text = new_source[stmt.start_byte:stmt.end_byte].decode("utf-8", errors="ignore")
-            inner = stmt_text.rstrip().rstrip(";").rstrip()
-            if stmt.type == "expression_statement":
-                inner += ";"
+            inner = stmt_text.rstrip()
 
             var_name = f"{var_base}_{i}"
             indent = " " * stmt.start_point[1]

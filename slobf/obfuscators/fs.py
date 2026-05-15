@@ -1,6 +1,7 @@
 """Function Splitting (FS) — AST-based."""
 
 import random
+import re
 from slobf.obfuscators.base import BaseObfuscator, ObfuscationResult
 from slobf.parser.c_parser import FunctionInfo
 from tree_sitter import Node
@@ -17,6 +18,8 @@ class FSObfuscator(BaseObfuscator):
             return False, "Too few statements for function splitting"
         if func_info.is_variadic:
             return False, "Variadic function"
+        if func_info.num_returns > 1:
+            return False, "Multiple return statements cannot be split"
         return True, ""
 
     def transform(self, source: bytes, func_node: Node, func_info: FunctionInfo,
@@ -50,38 +53,44 @@ class FSObfuscator(BaseObfuscator):
                        "return_statement", "expression_statement"}
         for i in range(split_idx, min(split_idx + 4, len(stmts) - 2)):
             if stmts[i].type in split_types:
-                # Check if next stmt starts a new logical block
                 split_idx = i + 1
                 break
 
         if split_idx >= len(stmts) - 2:
             split_idx = len(stmts) // 2
 
-        # The first half stays in original; second half moves to helper
         first_half = stmts[:split_idx]
         second_half = stmts[split_idx:]
 
-        # Collect local variables declared in the first half that are used in the second half
-        # For simplicity: use a heuristic based on identifiers
+        # Don't pass return statements to the helper
+        for i, stmt in enumerate(second_half):
+            if stmt.type == "return_statement":
+                second_half = second_half[:i]
+                break
+
+        if len(second_half) < 2:
+            res.reason_if_failed = "Second half too small after removing returns"
+            return res
+
         second_half_text = " ".join(
             source[s.start_byte:s.end_byte].decode("utf-8", errors="ignore")
             for s in second_half
         )
-        first_half_text = " ".join(
-            source[s.start_byte:s.end_byte].decode("utf-8", errors="ignore")
-            for s in first_half
-        )
 
-        # Find local variable declarations in first half
+        # Extract (name, type) for locally declared variables + function parameters
         imported_vars = self._find_declared_vars(first_half, source)
-        # Filter to only vars referenced in second half
-        passed_vars = [v for v in imported_vars if v in second_half_text]
+        imported_vars.extend(self._extract_params(func_node, source))
+        # Use regex word-boundary matching to avoid substring false positives
+        passed_vars = [
+            (name, typ) for name, typ in imported_vars
+            if re.search(r'\b' + re.escape(name) + r'\b', second_half_text)
+        ]
 
         helper_name = f"slobf_split_{rng.randint(1000, 9999)}"
         indent = " " * body.start_point[1]
 
-        # Build helper function
-        params = ", ".join(f"int {v}" for v in passed_vars)
+        # Build helper with correct types
+        params = ", ".join(f"{typ} {name}" for name, typ in passed_vars)
         helper_sig = f"static void {helper_name}({params})"
         helper_lines = [helper_sig + " {"]
         for stmt in second_half:
@@ -89,18 +98,11 @@ class FSObfuscator(BaseObfuscator):
             helper_lines.append(f"    {stmt_text}")
         helper_lines.append("}")
 
-        # Build the modified original function: first_half + call to helper
-        # Replace second_half with a call to helper + return if needed
-        call_args = ", ".join(passed_vars) if passed_vars else ""
+        call_args = ", ".join(name for name, _ in passed_vars) if passed_vars else ""
         call_stmt = f"{indent}    {helper_name}({call_args});"
 
-        # Remove second_half from the body by splicing byte ranges
-        # Take everything up to first_half[-1].end_byte, add call, then close
-        last_first = first_half[-1]
         first_second = second_half[0]
-        last_second = second_half[-1]
 
-        # Build new function body interior
         closing_brace = None
         for child in body.children:
             if child.type == "}":
@@ -111,10 +113,9 @@ class FSObfuscator(BaseObfuscator):
             res.reason_if_failed = "Cannot find closing brace"
             return res
 
-        # New source = [prefix before body] + [helper func] + [new body] + [suffix after body]
         prefix = source[:func_node.start_byte]
+        suffix = source[func_node.end_byte:]
 
-        # Build new body: everything up to split point + call + closing
         body_interior = (
             source[body.children[0].end_byte:first_second.start_byte].decode("utf-8", errors="ignore") +
             call_stmt + "\n" +
@@ -122,12 +123,12 @@ class FSObfuscator(BaseObfuscator):
             source[closing_brace.start_byte:closing_brace.end_byte].decode("utf-8", errors="ignore")
         )
 
-        # Reconstruct: helper before the function, then modified function
         new_source = (
             prefix.decode("utf-8", errors="ignore") +
             "\n".join(helper_lines) + "\n\n" +
             source[func_node.start_byte:body.children[0].end_byte].decode("utf-8", errors="ignore") +
-            "\n" + body_interior
+            "\n" + body_interior +
+            suffix.decode("utf-8", errors="ignore")
         )
 
         res.changed_source = new_source
@@ -135,30 +136,65 @@ class FSObfuscator(BaseObfuscator):
         res.success = True
         res.metadata["helper_name"] = helper_name
         res.metadata["split_point"] = split_idx
-        res.metadata["passed_vars"] = passed_vars
+        res.metadata["passed_vars"] = [n for n, _ in passed_vars]
         return res
 
-    def _find_declared_vars(self, stmts: list[Node], source: bytes) -> list[str]:
-        """Find variable names declared in the given statements."""
-        vars_found = []
+    def _find_declared_vars(self, stmts: list[Node], source: bytes) -> list[tuple[str, str]]:
+        """Return list of (name, type_string) for locally declared variables."""
+        results = []
         for stmt in stmts:
-            text = source[stmt.start_byte:stmt.end_byte].decode("utf-8", errors="ignore")
-            # Simple heuristic: look for declaration keywords followed by identifier
             if stmt.type == "declaration":
-                decl_text = source[stmt.start_byte:stmt.end_byte].decode("utf-8", errors="ignore")
-                # Find identifiers after type specifiers
-                self._extract_declared_names(stmt, source, vars_found)
-        return list(set(vars_found))
+                self._extract_declared_vars(stmt, source, results, stmt.start_byte)
+        # Deduplicate by name (keep first occurrence)
+        seen = set()
+        unique = []
+        for name, typ in results:
+            if name not in seen:
+                seen.add(name)
+                unique.append((name, typ))
+        return unique
 
-    def _extract_declared_names(self, node: Node, source: bytes, names: list[str]):
-        """Extract declarator names from a declaration node."""
+    def _extract_declared_vars(self, node: Node, source: bytes,
+                               results: list[tuple[str, str]], decl_start: int):
+        """Extract (name, type_string) from declaration subtrees."""
         if node.type == "init_declarator":
             for child in node.children:
                 if child.type == "identifier":
-                    names.append(source[child.start_byte:child.end_byte].decode())
+                    name = source[child.start_byte:child.end_byte].decode()
+                    type_text = source[decl_start:child.start_byte].decode().strip()
+                    results.append((name, type_text))
                 elif child.type == "pointer_declarator":
                     for c in child.children:
                         if c.type == "identifier":
-                            names.append(source[c.start_byte:c.end_byte].decode())
+                            name = source[c.start_byte:c.end_byte].decode()
+                            type_text = source[decl_start:c.start_byte].decode().strip()
+                            results.append((name, type_text))
         for child in node.children:
-            self._extract_declared_names(child, source, names)
+            self._extract_declared_vars(child, source, results, decl_start)
+
+    @staticmethod
+    def _extract_params(func_node: Node, source: bytes) -> list[tuple[str, str]]:
+        """Extract (name, type) from function parameters."""
+        params = []
+        for child in func_node.children:
+            if child.type == "function_declarator":
+                for dc in child.children:
+                    if dc.type == "parameter_list":
+                        for pc in dc.children:
+                            if pc.type == "parameter_declaration":
+                                # Find the identifier in the parameter declaration
+                                identifier = None
+                                for n in pc.children:
+                                    if n.type == "identifier":
+                                        identifier = n
+                                        break
+                                    elif n.type in ("pointer_declarator", "array_declarator"):
+                                        for cn in n.children:
+                                            if cn.type == "identifier":
+                                                identifier = cn
+                                                break
+                                if identifier:
+                                    name = source[identifier.start_byte:identifier.end_byte].decode()
+                                    type_text = source[pc.start_byte:identifier.start_byte].decode().strip()
+                                    params.append((name, type_text))
+        return params

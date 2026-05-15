@@ -21,8 +21,6 @@ class DEObfuscator(BaseObfuscator):
         ok, reason = super().is_eligible(func_info)
         if not ok:
             return ok, reason
-        if func_info.num_statements < 1:
-            return False, "No statements to encode"
         return True, ""
 
     def transform(self, source: bytes, func_node: Node, func_info: FunctionInfo,
@@ -99,8 +97,8 @@ class DEObfuscator(BaseObfuscator):
         if abs(val) <= 1:
             return None  # don't encode trivial constants
 
-        # Pick between encoding strategies
-        strategy = rng.randint(0, 2)
+        # Pick between XOR-based encoding strategies (avoid unsigned casts)
+        strategy = rng.randint(0, 1)
 
         if strategy == 0:
             # Multi-layer XOR: ((C ^ K1) - K2) ^ K3
@@ -108,18 +106,10 @@ class DEObfuscator(BaseObfuscator):
             k2 = rng.randint(1, 0xFFFF)
             k3 = rng.randint(0x1000, 0x7FFFFFFF)
             return f"((({val} ^ {k1}) - {k2}) ^ {k3})"
-
-        elif strategy == 1:
-            # Linear encoding: (C * M + A) where inverse exists
-            m = rng.choice([3, 5, 7, 9, 11, 13])
-            a = rng.randint(1, 0xFFF)
-            # For unsigned: ((C * M + A) - A) / M
-            return f"((unsigned)(({val} * {m} + {a}) - {a}) / {m})"
-
         else:
-            # Double XOR (simpler)
+            # Double XOR with intermediate arithmetic
             k = rng.randint(0x1000, 0x7FFFFFFF)
-            return f"(({val} ^ {k}) ^ {k})"
+            return f"((({val} ^ {k}) + ({val} & 0)) ^ {k})"
 
     def _encode_string(self, node: Node, source: bytes, rng: random.Random) -> str | None:
         """Replace "abc" with a runtime-decoded stack array.

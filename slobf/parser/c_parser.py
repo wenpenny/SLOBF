@@ -30,6 +30,8 @@ class FunctionInfo:
     is_variadic: bool = False
     has_goto: bool = False
     has_switch: bool = False
+    has_break: bool = False
+    has_continue: bool = False
     has_asm: bool = False
     has_pointer_ops: bool = False
     has_float_ops: bool = False
@@ -73,7 +75,7 @@ class CParser:
         """Find a function_definition node by name within an AST."""
         for child in root.children:
             if child.type == "function_definition":
-                declarator = self._child_of_type(child, "function_declarator")
+                declarator = self._find_deep_child(child, "function_declarator")
                 if declarator:
                     name_node = self._find_identifier(declarator)
                     if name_node:
@@ -91,7 +93,7 @@ class CParser:
 
     def get_function_body(self, func_node: Node) -> Node | None:
         """Return the compound_statement body of a function_definition."""
-        return self._child_of_type(func_node, "compound_statement")
+        return self._find_deep_child(func_node, "compound_statement")
 
     def get_body_statements(self, body_node: Node) -> list[Node]:
         """Return top-level statements inside a compound_statement, skipping '{' and '}'."""
@@ -151,6 +153,16 @@ class CParser:
                 return c
         return None
 
+    def _find_deep_child(self, node: Node, type_name: str) -> Node | None:
+        """Find a descendant node of the given type (recursive)."""
+        if node.type == type_name:
+            return node
+        for c in node.children:
+            r = self._find_deep_child(c, type_name)
+            if r:
+                return r
+        return None
+
     def _find_identifier(self, node: Node) -> Node | None:
         if node.type == "identifier":
             return node
@@ -171,7 +183,7 @@ class CParser:
 
     def _extract_function_info(self, node: Node, content: bytes,
                                 file_path: Path, dataset_name: str, program_name: str) -> FunctionInfo | None:
-        declarator = self._child_of_type(node, "function_declarator")
+        declarator = self._find_deep_child(node, "function_declarator")
         if not declarator:
             return None
 
@@ -252,6 +264,10 @@ class CParser:
             info.num_returns += 1
         elif t == "goto_statement":
             info.has_goto = True
+        elif t == "break_statement":
+            info.has_break = True
+        elif t == "continue_statement":
+            info.has_continue = True
         elif t == "asm_statement":
             info.has_asm = True
         if t in ("pointer_expression", "field_expression", "subscript_expression"):

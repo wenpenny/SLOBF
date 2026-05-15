@@ -36,6 +36,10 @@ class CFFObfuscator(BaseObfuscator):
             return False, "Contains goto"
         if func_info.has_switch:
             return False, "Already contains switch"
+        if func_info.has_break:
+            return False, "Contains break inside loop"
+        if func_info.has_continue:
+            return False, "Contains continue inside loop"
         return True, ""
 
     def transform(self, source: bytes, func_node: Node, func_info: FunctionInfo,
@@ -53,10 +57,18 @@ class CFFObfuscator(BaseObfuscator):
             return res
 
         # ------------------------------------------------------------------
-        # 1. Decompose body into flat blocks
+        # 1. Separate declarations (must stay outside dispatcher for scoping)
         # ------------------------------------------------------------------
-        stmts = [c for c in body.children if c.type in self._STMT_TYPES]
-        flat_blocks = self._flatten(stmts, source)
+        all_stmts = [c for c in body.children if c.type in self._STMT_TYPES]
+        decl_texts = []
+        non_decl = []
+        for s in all_stmts:
+            if s.type == "declaration":
+                decl_texts.append(source[s.start_byte:s.end_byte].decode("utf-8", errors="ignore"))
+            else:
+                non_decl.append(s)
+
+        flat_blocks = self._flatten(non_decl, source)
 
         if len(flat_blocks) < 2:
             res.reason_if_failed = "Only one block after flattening"
@@ -132,6 +144,9 @@ class CFFObfuscator(BaseObfuscator):
         stmt_i = case_i + 4
 
         lines = []
+        # Keep declarations visible outside the while-loop for correct scoping
+        for dt in decl_texts:
+            lines.append(f"{' ' * inner}{dt}")
         lines.append(f"{' ' * inner}int {state_var} = {id_map[0]};")
         lines.append(f"{' ' * inner}while ({state_var} >= 0) {{")
         lines.append(f"{' ' * case_i}switch ({state_var}) {{")
@@ -285,6 +300,19 @@ class CFFObfuscator(BaseObfuscator):
                         loop_body = child
                         break
 
+                # Extract for-loop update expression (e.g., i++)
+                for_update = None
+                if stmt.type == "for_statement":
+                    semicolons = [c for c in stmt.children if c.type == ";"]
+                    if len(semicolons) >= 2:
+                        after_second = False
+                        for child in stmt.children:
+                            if child == semicolons[1]:
+                                after_second = True
+                            elif after_second and child.type not in ("(", ")", "compound_statement"):
+                                for_update = source[child.start_byte:child.end_byte].decode("utf-8", errors="ignore")
+                                break
+
                 header_idx = len(blocks)
                 blocks.append([])  # placeholder
 
@@ -293,6 +321,12 @@ class CFFObfuscator(BaseObfuscator):
                     body_stmts = [c for c in loop_body.children if c.type in self._STMT_TYPES]
                     blocks.extend(self._flatten(body_stmts, source))
                 body_end = len(blocks)
+
+                # Append update expression to last body block if present
+                if for_update and body_end > body_start:
+                    last_body = blocks[body_end - 1]
+                    if last_body:
+                        last_body.append(("stmt", for_update + ";"))
 
                 after_idx = len(blocks)
 
@@ -344,4 +378,17 @@ class CFFObfuscator(BaseObfuscator):
                         return cc
             if child.type == "parenthesized_expression":
                 return child
+        # for_statement: condition is a direct expression child between two ";"
+        if node.type == "for_statement":
+            semicolons = [c for c in node.children if c.type == ";"]
+            if len(semicolons) >= 2:
+                # Find expression between first and second semicolon
+                between = False
+                for child in node.children:
+                    if child == semicolons[0]:
+                        between = True
+                    elif child == semicolons[1]:
+                        between = False
+                    elif between and child.type not in ("(", ")"):
+                        return child
         return None
