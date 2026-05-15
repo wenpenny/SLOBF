@@ -62,8 +62,8 @@ class DatasetManager:
 
     def _apply_screening(self, f: FunctionInfo):
         reasons = []
-        if f.num_lines < 3:
-            reasons.append("Too short (< 3 lines)")
+        if f.num_lines < 10:
+            reasons.append("Too short (< 10 lines)")
         if f.num_statements < 3:
             reasons.append("Too few statements (< 3)")
         if f.num_statements <= 1 and f.num_returns == 1:
