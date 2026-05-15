@@ -267,7 +267,7 @@ def rq2_cmd(config, train_steps, **kwargs):
 
 @main.command("rq3")
 @click.option("--config", "-c", default=None, help="Path to config YAML.")
-@click.option("--functions", default=None, help="Path to functions CSV (default: selected_functions_test.csv).")
+@click.option("--functions", default=None, help="Path to functions CSV (default: selected_functions_testset.csv).")
 @global_options
 def rq3_cmd(config, functions, **kwargs):
     """Run RQ3: impact of compilation optimization levels."""
@@ -293,6 +293,8 @@ def sanity_check_cmd(results):
             errors.append(f"Missing directory: {sub}")
 
     key_files = [
+        "selected_functions_dataset.csv",
+        "selected_functions_testset.csv",
         "rq1/single_operator_raw.csv",
         "rq2/rl_eval_raw.csv",
         "rq3/optimization_raw.csv",

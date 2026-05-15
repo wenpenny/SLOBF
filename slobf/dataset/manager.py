@@ -84,16 +84,15 @@ class DatasetManager:
             f.eligibility = {"general": True}
 
     def sample_functions(self, df: pd.DataFrame):
-        """Split eligible functions into train/test sets shared by all RQs.
+        """Split eligible functions into dataset / test-set shared by all RQs.
 
-        - Train (~80%): used by RQ2 to train the RL agent
-        - Test  (~20%): used by RQ1, RQ2 evaluation, and RQ3
+        - dataset (~80%): used by RQ2 to train the RL agent
+        - testset (~20%): used by RQ1, RQ2 evaluation, and RQ3
         """
         if df.empty:
             return
 
         eligible = df[df["eligibility"].apply(lambda x: x.get("general", False))].copy()
-        # Deduplicate: same function name in same source file (macro expansions)
         eligible = eligible.drop_duplicates(subset=["name", "source_file"])
         if eligible.empty:
             logger.warning("No eligible functions found.")
@@ -108,26 +107,22 @@ class DatasetManager:
 
         results_dir = Path(self.cfg.paths.results_dir)
 
-        # --- Train / test split ---
-        from sklearn.model_selection import train_test_split
-        try:
-            train, test = train_test_split(
-                eligible, test_size=0.2,
-                stratify=eligible[["size_group", "program"]],
-                random_state=self.cfg.seed,
-            )
-        except Exception:
-            train, test = train_test_split(eligible, test_size=0.2, random_state=self.cfg.seed)
+        # Deterministic split by program + size_group to ensure balanced distribution
+        dataset_parts = []
+        testset_parts = []
+        for (prog, sg), group in eligible.groupby(["program", "size_group"]):
+            n_test = max(1, int(len(group) * 0.2))
+            group_sorted = group.sort_values("name")
+            testset_parts.append(group_sorted.iloc[:n_test])
+            dataset_parts.append(group_sorted.iloc[n_test:])
 
-        train.to_csv(results_dir / "selected_functions_train.csv", index=False)
-        test.to_csv(results_dir / "selected_functions_test.csv", index=False)
+        dataset = pd.concat(dataset_parts).sort_index()
+        testset = pd.concat(testset_parts).sort_index()
 
-        # --- RQ1: sample from test set ---
-        rq1_size = min(len(test), 1000)
-        rq1 = test.sample(rq1_size, random_state=self.cfg.seed)
-        rq1.to_csv(results_dir / "selected_functions_rq1.csv", index=False)
+        dataset.to_csv(results_dir / "selected_functions_dataset.csv", index=False)
+        testset.to_csv(results_dir / "selected_functions_testset.csv", index=False)
 
         logger.info(
-            "Split: train=%d test=%d (total=%d) | RQ1 sample=%d",
-            len(train), len(test), len(eligible), len(rq1),
+            "Split: dataset=%d testset=%d (total=%d)",
+            len(dataset), len(testset), len(eligible),
         )

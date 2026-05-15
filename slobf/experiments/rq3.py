@@ -35,7 +35,7 @@ class RQ3Runner:
 
     def run(self, functions_csv: str | None = None):
         if functions_csv is None:
-            functions_csv = str(Path(self.cfg.paths.results_dir) / "selected_functions_test.csv")
+            functions_csv = str(Path(self.cfg.paths.results_dir) / "selected_functions_testset.csv")
         df = pd.read_csv(functions_csv)
         opt_levels = self.cfg.compiler.opt_levels
         operators = list(self.obs_mgr.operators.keys())

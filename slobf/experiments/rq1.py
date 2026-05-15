@@ -43,9 +43,9 @@ class RQ1Runner:
         if seeds is None:
             seeds = [0, 1, 2]
 
-        selected_csv = Path(self.cfg.paths.results_dir) / "selected_functions_rq1.csv"
+        selected_csv = Path(self.cfg.paths.results_dir) / "selected_functions_testset.csv"
         if not selected_csv.exists():
-            logger.error("selected_functions_rq1.csv not found. Run 'slobf scan' first.")
+            logger.error("selected_functions_testset.csv not found. Run 'slobf scan' first.")
             return
 
         df = pd.read_csv(selected_csv)
