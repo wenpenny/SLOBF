@@ -1,17 +1,35 @@
-# SLOBF — Source-Level Obfuscation for Binary Function Similarity Analysis
+# SLOBF — Source-Level Obfuscation for Binary Function Similarity
 
-Function-level source code obfuscation framework for evaluating the resilience of deep learning-based binary similarity models. Built on tree-sitter AST transformation, all operators are semantics-preserving.
+Source-level obfuscation framework for evaluating the resilience of deep
+learning-based binary similarity models.  Obfuscation is applied at function
+granularity via tree-sitter AST transformations; all six operators are
+semantics-preserving by construction.
 
 ## Operators
 
-| Operator | Description |
-|----------|------------|
+| Operator | Mechanism |
+|----------|-----------|
 | **OPI** — Opaque Predicate Insertion | Wraps statements in if-else guarded by always-true mathematical identities |
 | **CFF** — Control Flow Flattening | Decomposes control flow into a while-switch dispatcher |
-| **ER** — Expression Rewriting | Replaces arithmetic/logical expressions with algebraically equivalent forms |
-| **DE** — Data Encoding | Encodes integer constants and string literals with self-inverse XOR layers |
-| **JCI** — Junk Code Insertion | Inserts dead code blocks with no side effects |
-| **FS** — Function Splitting | Splits a function into caller + static helper |
+| **ER**  — Expression Rewriting | Replaces arithmetic/logical expressions with algebraically equivalent forms |
+| **DE**  — Data Encoding | Encodes integer constants and string literals with self-inverse XOR layers |
+| **JCI** — Junk Code Insertion | Inserts dead code blocks (volatile-qualified to resist compiler elimination) |
+| **FS**  — Function Splitting | Splits a function body into a caller stub and a static helper function |
+
+## Supported Binary Similarity Models
+
+| Model | Venue | Architecture |
+|-------|-------|-------------|
+| jTrans   | ISSTA 2022 | BERT + control-flow graph |
+| PalmTree | CCS 2021   | BERT for assembly instructions |
+| CLAP     | ISSTA 2024 | Contrastive assembly–text pretraining |
+| CEBin    | ISSTA 2024 | RoBERTa + GNN with retrieval augmentation |
+
+## Requirements
+
+- Python 3.10+
+- GCC 11.4+
+- Ubuntu 22.04 (or compatible Linux distribution)
 
 ## Installation
 
@@ -23,52 +41,48 @@ source venv/bin/activate
 bash scripts/download_datasets.sh
 ```
 
-Requirements: GCC 11.4+, Python 3.10+, Ubuntu 22.04 (or Windows with MinGW-w64).
+The setup script creates a virtual environment and installs all dependencies.
+The download script fetches four GNU utility packages (coreutils 9.1, binutils
+2.41, diffutils 3.10, findutils 4.9.0) used as the evaluation dataset.
 
-## Quick Start
-
-```bash
-# Scan and extract functions from dataset
-slobf scan
-
-# Apply an operator to a single function
-slobf obfuscate --operator OPI --function func_name --source file.c --output result.c
-
-# Run all experiments
-bash scripts/run_all.sh
-```
+Third-party model weights must be placed under `models/{CEBin,CLAP,PalmTree,jTrans}/`
+before running experiments.  See `models/` directory structure in the repository
+for the expected layout.
 
 ## Experiments
 
-Three research questions:
+The framework evaluates three research questions:
 
-| RQ | Question | Command |
-|----|----------|---------|
+| RQ | Question | Entry Point |
+|----|----------|-------------|
 | RQ1 | Impact of individual operators on model accuracy | `slobf rq1` |
 | RQ2 | RL-guided cost-aware operator combination search | `slobf rq2` |
-| RQ3 | Effect of compiler optimization levels (O0–O3) | `slobf rq3` |
+| RQ3 | Effect of compiler optimisation levels (O0–O3) | `slobf rq3` |
 
-Results are saved under `results/` with LaTeX tables and figures.
+All results are written to `results/` with CSV tables, LaTeX tables, and
+publication-ready figures.
 
-## Project Structure
+### Reproducibility
+
+All random seeds are fixed.  Dataset splits are deterministic (sorted by
+function name, no random shuffling).  The configuration files under `configs/`
+document every tunable parameter.
+
+## Package Structure
 
 ```
 slobf/
-├── obfuscators/    # AST-based obfuscation operators
-├── parser/         # tree-sitter C parser
-├── compiler/       # GCC compilation manager
-├── binary/         # ELF function extraction
-├── models/         # Binary similarity model adapters
-├── rl/             # PPO-based sequence optimisation
-├── experiments/    # RQ1/RQ2/RQ3 runners
-├── metrics/        # Similarity metrics and semantic verifier
-└── dataset/        # Dataset scanning and function screening
+├── obfuscators/    # AST-based obfuscation operators (tree-sitter C)
+├── parser/         # C source parser and function metadata extraction
+├── compiler/       # Full-program GCC compilation with incremental rebuild
+├── binary/         # ELF function extraction via pyelftools + Capstone
+├── models/         # Adapters for four binary similarity models
+├── rl/             # PPO-based operator sequence optimisation (Gymnasium)
+├── experiments/    # RQ1 / RQ2 / RQ3 experiment runners
+├── metrics/        # Similarity metrics, retrieval evaluation, semantic verifier
+├── dataset/        # Function scanning, screening, and stratified splitting
+└── utils/          # LaTeX table and figure generation
 ```
-
-## Extending
-
-- **New operator**: Subclass `BaseObfuscator` in `slobf/obfuscators/` and register in `ObfuscationManager`
-- **New model**: Implement `ModelAdapter` protocol in `slobf/models/`
 
 ## License
 

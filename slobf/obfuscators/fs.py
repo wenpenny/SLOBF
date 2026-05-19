@@ -75,15 +75,19 @@ class FSObfuscator(BaseObfuscator):
             res.reason_if_failed = "Second half too small after removing returns"
             return res
 
-        # Extract function return type (everything before function_declarator)
+        # Extract function return type (skip storage class specifiers like "static")
         ret_type = "int"
+        ret_type_parts = []
         for child in func_node.children:
             if child.type == "function_declarator":
                 break
+            if child.type in ("storage_class_specifier",):
+                continue
             txt = source[child.start_byte:child.end_byte].decode("utf-8", errors="ignore").strip()
-            if txt and child.type not in ("storage_class_specifier",):
-                ret_type = source[func_node.start_byte:child.end_byte].decode("utf-8", errors="ignore").strip()
-                break
+            if txt:
+                ret_type_parts.append(txt)
+        if ret_type_parts:
+            ret_type = " ".join(ret_type_parts)
 
         second_half_text = " ".join(
             source[s.start_byte:s.end_byte].decode("utf-8", errors="ignore")
@@ -168,7 +172,16 @@ class FSObfuscator(BaseObfuscator):
         results = []
         for stmt in stmts:
             if stmt.type == "declaration":
-                self._extract_declared_vars(stmt, source, results, stmt.start_byte)
+                # Find where the type specifier ends (before the first declarator)
+                type_end = stmt.start_byte
+                for child in stmt.children:
+                    if child.type in ("init_declarator", "pointer_declarator",
+                                      "array_declarator", "function_declarator",
+                                      ",", ";"):
+                        break
+                    type_end = child.end_byte
+                base_type = source[stmt.start_byte:type_end].decode().strip()
+                self._extract_declared_vars(stmt, source, results, base_type, type_end)
         # Deduplicate by name (keep first occurrence)
         seen = set()
         unique = []
@@ -179,22 +192,60 @@ class FSObfuscator(BaseObfuscator):
         return unique
 
     def _extract_declared_vars(self, node: Node, source: bytes,
-                               results: list[tuple[str, str]], decl_start: int):
-        """Extract (name, type_string) from declaration subtrees."""
+                               results: list[tuple[str, str]],
+                               base_type: str, type_end: int):
+        """Extract (name, type_string) from declaration subtrees.
+
+        Uses pre-computed base_type to avoid multi-declarator contamination
+        (e.g., ``int a, b`` would previously extract ``int a, `` as b's type).
+        """
         if node.type == "init_declarator":
+            name = None
+            ptr_depth = ""
             for child in node.children:
                 if child.type == "identifier":
                     name = source[child.start_byte:child.end_byte].decode()
-                    type_text = source[decl_start:child.start_byte].decode().strip()
-                    results.append((name, type_text))
                 elif child.type == "pointer_declarator":
-                    for c in child.children:
-                        if c.type == "identifier":
-                            name = source[c.start_byte:c.end_byte].decode()
-                            type_text = source[decl_start:c.start_byte].decode().strip()
-                            results.append((name, type_text))
+                    ptr_depth = self._count_ptr_stars(child, source)
+                    name = self._find_identifier(child, source)
+                elif child.type == "array_declarator":
+                    name = self._find_identifier(child, source)
+            if name:
+                full_type = (base_type + " " + ptr_depth).strip() if ptr_depth else base_type
+                results.append((name, full_type))
+        elif node.type in ("pointer_declarator", "array_declarator"):
+            # Direct child of declaration (e.g., ``struct hash_entry *bucket;``)
+            name = self._find_identifier(node, source)
+            if name:
+                ptr = self._count_ptr_stars(node, source) if node.type == "pointer_declarator" else ""
+                full_type = (base_type + " " + ptr).strip() if ptr else base_type
+                results.append((name, full_type))
         for child in node.children:
-            self._extract_declared_vars(child, source, results, decl_start)
+            self._extract_declared_vars(child, source, results, base_type, type_end)
+
+    @staticmethod
+    def _count_ptr_stars(node: Node, source: bytes) -> str:
+        """Count pointer indirection levels, e.g. ``*`` or ``**``."""
+        stars = ""
+        for child in node.children:
+            if child.type == "pointer_declarator":
+                stars += "*" + FSObfuscator._count_ptr_stars(child, source)
+            elif child.type == "*":
+                stars += "*"
+        if node.type == "pointer_declarator" and not stars:
+            stars = "*"
+        return stars
+
+    @staticmethod
+    def _find_identifier(node: Node, source: bytes) -> str | None:
+        """Find the first identifier descendant in a declarator node."""
+        if node.type == "identifier":
+            return source[node.start_byte:node.end_byte].decode()
+        for child in node.children:
+            result = FSObfuscator._find_identifier(child, source)
+            if result:
+                return result
+        return None
 
     @staticmethod
     def _extract_params(func_node: Node, source: bytes) -> list[tuple[str, str]]:

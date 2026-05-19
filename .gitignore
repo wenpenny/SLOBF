@@ -31,20 +31,25 @@ Thumbs.db
 
 # Project runtime artefacts
 workdir/
-logs/*.log
-results/*.jsonl
-results/*.csv
-results/report/
+logs/
+results/
 datasets/
 
+# Third-party model repositories (large binaries, cloned separately)
+/models/
+
+# Experiments (not part of the public framework)
+slobf/experiments/
+slobf/utils/paper_utils.py
+configs/experiments.yaml
+
+# Tests (not part of the public framework)
+tests/
+
 # Test artefacts
-tests/obf_output/
 .pytest_cache/
 
-# Claude Code
-.claude/
-
-# Compiled binaries produced during experiments
+# Compiled binaries
 *.o
 *.elf
 *.bin
@@ -65,4 +70,6 @@ tests/obf_output/
 # Coverage
 .coverage
 htmlcov/
-.pytest_cache/
+
+# Claude Code
+.claude/

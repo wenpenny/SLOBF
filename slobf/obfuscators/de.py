@@ -97,7 +97,7 @@ class DEObfuscator(BaseObfuscator):
         if abs(val) <= 1:
             return None  # don't encode trivial constants
 
-        # Self-inverse encoding strategies
+        # Self-inverse encoding strategies — all XOR-based (no signed-overflow risk)
         strategy = rng.randint(0, 2)
 
         if strategy == 0:
@@ -105,14 +105,16 @@ class DEObfuscator(BaseObfuscator):
             k = rng.randint(0x1000, 0x7FFFFFFF)
             return f"(({val} ^ {k}) ^ {k})"
         elif strategy == 1:
-            # Add-subtract chain: ((C + K) - K) = C
-            k = rng.randint(1, 0xFFFFF)
-            return f"(({val} + {k}) - {k})"
-        else:
-            # Nested XOR chain: ((((C ^ K1) + K2) - K2) ^ K1) = C
+            # Triple XOR chain: (((C ^ K1) ^ K2) ^ K1 ^ K2) = C
             k1 = rng.randint(0x1000, 0x7FFFFFFF)
-            k2 = rng.randint(1, 0xFFFF)
-            return f"(((({val} ^ {k1}) + {k2}) - {k2}) ^ {k1})"
+            k2 = rng.randint(0x1000, 0x7FFFFFFF)
+            return f"(((({val} ^ {k1}) ^ {k2}) ^ {k1}) ^ {k2})"
+        else:
+            # Quadruple XOR chain: (((((C ^ K1) ^ K2) ^ K3) ^ K1) ^ K2) ^ K3 = C
+            k1 = rng.randint(0x1000, 0x7FFFFFFF)
+            k2 = rng.randint(0x1000, 0x7FFFFFFF)
+            k3 = rng.randint(0x1000, 0x7FFFFFFF)
+            return f"(((((({val} ^ {k1}) ^ {k2}) ^ {k3}) ^ {k1}) ^ {k2}) ^ {k3})"
 
     def _encode_string(self, node: Node, source: bytes, rng: random.Random) -> str | None:
         """Replace "abc" with a runtime-decoded stack array.
@@ -127,21 +129,29 @@ class DEObfuscator(BaseObfuscator):
         # Handle both "..." and L"..." forms
         if text.startswith('L"'):
             prefix = 'L'
-            content = text[2:-1] if text.endswith('"') else text[2:]
+            raw = text[1:]  # strip L for ast.literal_eval
         elif text.startswith('"'):
             prefix = ''
-            content = text[1:-1] if text.endswith('"') else text[1:]
+            raw = text
         else:
             return None
+
+        # Decode actual byte values (handles \n, \t, \", \0, \xNN, etc. correctly)
+        import ast
+        try:
+            content = ast.literal_eval(raw)
+        except (ValueError, SyntaxError):
+            # Fallback: strip quotes (may lose escape sequences on malformed input)
+            if raw.endswith('"'):
+                content = raw[1:-1]
+            else:
+                content = raw[1:]
 
         if not content:
             return None
 
         key = rng.randint(1, 255)
-        # Build the encoded initializer list
-        encoded_chars = []
-        for ch in content:
-            encoded_chars.append(str(ord(ch) ^ key))
+        encoded_chars = [str(ord(ch) ^ key) for ch in content]
         encoded_chars.append(str(key))  # null terminator XOR key → key itself
 
         var = f"slobf_s_{rng.randint(1000, 9999)}"

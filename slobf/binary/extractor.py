@@ -115,7 +115,7 @@ class BinaryExtractor:
                     instr_count += 1
                     if i.mnemonic in (
                         "jmp", "je", "jne", "jg", "jl", "ja", "jb",
-                        "jge", "jle", "jae", "jbe", "call", "ret",
+                        "jge", "jle", "jae", "jbe", "ret",
                     ):
                         bb_count += 1
 
