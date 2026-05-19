@@ -45,28 +45,8 @@ The setup script creates a virtual environment and installs all dependencies.
 The download script fetches four GNU utility packages (coreutils 9.1, binutils
 2.41, diffutils 3.10, findutils 4.9.0) used as the evaluation dataset.
 
-Third-party model weights must be placed under `models/{CEBin,CLAP,PalmTree,jTrans}/`
-before running experiments.  See `models/` directory structure in the repository
-for the expected layout.
-
-## Experiments
-
-The framework evaluates three research questions:
-
-| RQ | Question | Entry Point |
-|----|----------|-------------|
-| RQ1 | Impact of individual operators on model accuracy | `slobf rq1` |
-| RQ2 | RL-guided cost-aware operator combination search | `slobf rq2` |
-| RQ3 | Effect of compiler optimisation levels (O0–O3) | `slobf rq3` |
-
-All results are written to `results/` with CSV tables, LaTeX tables, and
-publication-ready figures.
-
-### Reproducibility
-
-All random seeds are fixed.  Dataset splits are deterministic (sorted by
-function name, no random shuffling).  The configuration files under `configs/`
-document every tunable parameter.
+Third-party model weights must be placed under `models/{CEBin,CLAP,PalmTree,jTrans}/`.
+See the respective model repositories for download instructions.
 
 ## Package Structure
 
@@ -78,10 +58,8 @@ slobf/
 ├── binary/         # ELF function extraction via pyelftools + Capstone
 ├── models/         # Adapters for four binary similarity models
 ├── rl/             # PPO-based operator sequence optimisation (Gymnasium)
-├── experiments/    # RQ1 / RQ2 / RQ3 experiment runners
-├── metrics/        # Similarity metrics, retrieval evaluation, semantic verifier
-├── dataset/        # Function scanning, screening, and stratified splitting
-└── utils/          # LaTeX table and figure generation
+├── metrics/        # Similarity metrics and semantic verifier
+└── dataset/        # Function scanning, screening, and stratified splitting
 ```
 
 ## License
